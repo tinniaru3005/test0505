@@ -12,6 +12,10 @@ import { useEffect, useState } from "react";
 import { ethers } from "ethers";
 import { RPC_URL, SECRET_KEY } from "./config";
 
+import MyToken from "./MetaCoin.json"; // Your token ABI
+const tokenAddress = "0xe90eCA1dd2e7D6FfE2550dB0f7A0bdbA31f018d0";
+
+
 // Load the sender's wallet from the private key
 const provider = new ethers.JsonRpcProvider(RPC_URL);
 const senderWallet = new ethers.Wallet(SECRET_KEY, provider);
@@ -26,6 +30,9 @@ function App() {
   const [fee, setFee] = useState(0); // Gas fee per transaction (not actively used for Ethereum)
   const [loading, setLoading] = useState(false);
   const [balanceAmount, setBalanceAmount] = useState(0); // Sender's token balance
+  const [validAddresses, setValidAddresses] = useState([]);
+  const [invalidAddresses, setInvalidAddresses] = useState([]);
+  const [error, setError] = useState("");
 
   // Fetch token balance of the sender's wallet
   useEffect(() => {
@@ -55,38 +62,58 @@ function App() {
       const confirmDisconnect = window.confirm("Do you want to disconnect?");
       if (confirmDisconnect) {
         setIsConnected(false);
+        setWalletAddress("");
+        alert("You have been disconnected.");
       }
     } else {
-      // Placeholder for future MetaMask logic
-      alert("Simulating wallet connection. MetaMask support coming soon.");
-      setIsConnected(true);
+      if (window.ethereum) {
+        try {
+          // Request account access
+          const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+          if (accounts.length > 0) {
+            setIsConnected(true);
+            setWalletAddress(accounts[0]);
+            alert(`Connected to wallet: ${accounts[0]}`);
+          }
+        } catch (error) {
+          console.error("Error connecting to MetaMask:", error);
+          alert("Failed to connect to MetaMask. Please try again.");
+        }
+      } else {
+        alert("MetaMask is not installed. Please install MetaMask and try again.");
+      }
     }
   };
 
-  // Airdrop logic
   const handleAirdrop = async () => {
     if (!tokenAddress || wallets.length === 0 || quantity <= 0) {
       alert("Please fill in all parameters correctly!");
       return;
     }
-
+  
     setLoading(true);
     try {
-      const erc20ABI = [
-        "function transfer(address to, uint256 value) public returns (bool)",
-        "function decimals() view returns (uint8)",
-      ];
-      const tokenContract = new ethers.Contract(tokenAddress, erc20ABI, senderWallet);
+      // Connect to local Ganache network
+      const provider = new ethers.JsonRpcProvider("http://127.0.0.1:7545");
+  
+      // Use the private key of the sender (from Ganache accounts)
+      const senderPrivateKey = "0x4466a0dba0dcc46a8ece2f99ab2b9bc2f5acd2ffdc7e1d2a0fafc88b270b2b6a";
+      const senderWallet = new ethers.Wallet(senderPrivateKey, provider);
+  
+      // Use Truffle-generated ABI
+      const tokenContract = new ethers.Contract(tokenAddress, MyToken.abi, senderWallet);
+  
       const decimals = await tokenContract.decimals();
       const amount = ethers.parseUnits(quantity.toString(), decimals);
-
+  
       for (let i = 0; i < wallets.length; i++) {
         const recipient = wallets[i];
         console.log(`Transferring ${quantity} tokens to ${recipient}...`);
         const tx = await tokenContract.transfer(recipient, amount);
-        await tx.wait(); // Wait for the transaction to confirm
+        await tx.wait();
         console.log(`Successfully sent to ${recipient}`);
       }
+  
       alert("Airdrop completed successfully!");
     } catch (error) {
       console.error("Airdrop failed:", error);
@@ -117,7 +144,7 @@ function App() {
           </button> */}
         </div>
         <div className="event">
-          <SenderTable wallets={wallets} setWallets={setWallets} isConnected = {isConnected}/>
+          <SenderTable wallets={wallets} setWallets={setWallets} isConnected = {isConnected} walletAddress = {walletAddress}/>
         </div>
         <div className="main">
           <TokenPart

@@ -8,7 +8,9 @@ const ConnectWallet = (props) => {
       className={isConnected ? "btn btn-success" : "btn btn-danger"}
       onClick={handleConnect}
     >
-      <h3>{isConnected ? "Connected" : "Connect Wallet"}</h3>
+      <h3>
+        {isConnected ? `Connected` : "Connect Wallet"}
+      </h3>
     </Button>
   );
 };
